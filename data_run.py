@@ -1,11 +1,15 @@
+#!/usr/bin/env python3
+
 # data_run.py
 # data collection runtime for the 
 # Anomolous Behavior Profiling plugin
 # written by Aaron Krapes
-# Feb 5, 2026
+# Feb 6, 2026
 
-# LEGAL DISCLAIMER ------------------------------------------------------
+# LEGAL DISCLAIMER 
+# -----------------------------------------------------------------------
 # THIS PROGRAM SNIFFS PACKETS FROM A SPECIFIED NETWORK INTERFACE
+#
 # DO NOT EVER RUN THIS PROGRAM GIVEN AN INTERFACE THAT HAS ACCESS TO A 
 # NETWORK WHICH YOU DO NOT OWN OR HAVE LEGAL PERMISSION TO ADMINISTRATE
 # -----------------------------------------------------------------------
@@ -13,54 +17,60 @@
 # global variables
 import sys
 if len(sys.argv) > 2:
-    HTTP_PORT_NUM = sys.argv[1]
+    PIPE_PORT_NUM = sys.argv[1]
     NET_IF = sys.argv[2]
 else:
-    sys.exit("provide HTTP server port number for pipeline input as arg")
-
-# temporary debug output
-print("DEBUG -- HTTP Port: " + HTTP_PORT_NUM + " || Type: {}".format(type(HTTP_PORT_NUM)))
-print("DEBUG -- Network Interface: " + NET_IF + " || Type: {}".format(type(NET_IF)))
+    sys.exit("usage: sudo ./data_run.py [Morpheus pipeline HTTP port] [Network Interface]")
 
 # imports
-from scapy.all import sniff, Ether, IP, TCP, UDP
+from scapy.all import sniff, Raw, Ether, IP, IPv6, TCP, UDP
+from scapy.config import conf
 import json
 import requests
+
+# set scapy to use libpcap for compatibility
+conf.use_pcap = True
 
 # function to parse packets into the format that the Morpheus pipeline expects
 # and send them to the HTTP Server input stage
 def process_send(pkt):
-    # initialize lists for storing packet data
-    # helps us convert into a dict later
+    # make sure packet contains IP information (L2) or is IPv6 (not useful with model)
+    if not pkt.haslayer(IP) or pkt.haslayer(IPv6):
+        return 0
+    # initialize lists for storing packet information
+    # helps convert into a dict, then json later
     field = ['timestamp', 'host_ip', 'data_len', 'data', 
             'src_mac', 'dest_mac', 'protocol', 'src_ip', 
             'dest_ip', 'src_port', 'dest_port', 'flags']
     data = ['', '', '', '', '', '', '', '', '', '', '', '']
-    # manipulate payload for visual purposes
-    payload = pkt.default_payload_class(pkt.load)
-    print(payload)
+
+    # see if packet has payload
+    load = ''
+    if pkt.haslayer(Raw):
+        load = bytes(pkt[Raw].payload).decode('ascii', errors='backslashreplace')
+
     # add data from Ethernet and IP layers
-    data = [int(pkt.time), pkt[IP].src, pkt[IP].len, 'tmp', 
+    data = [int(pkt.time), pkt[IP].src, pkt[IP].len, load, 
             pkt[Ether].src, pkt[Ether].dst, pkt[IP].proto, 
-            pkt[IP].src, pkt[IP].dst, pkt[IP].flags]
-    # check what layers the packet has and add data accordingly
+            pkt[IP].src, pkt[IP].dst, int(pkt[IP].flags)]
+    # check what protocol layers the packet has and add data accordingly
     if pkt.haslayer(TCP):
         data.insert(9, pkt[TCP].sport)
         data.insert(10, pkt[TCP].dport)
-        data[11] = pkt[TCP].flags
+        data[11] = int(pkt[TCP].flags)
+        data[3] = bytes(pkt[TCP].payload).decode('ascii', errors='backslashreplace')
     elif pkt.haslayer(UDP):
         data.insert(9, pkt[UDP].sport)
         data.insert(10, pkt[UDP].dport)
-        
+        data[3] = bytes(pkt[UDP].payload).decode('ascii', errors='backslashreplace')
+
     # create dictionary and convert to json
     packet_data = dict(zip(field, data))
-    print(packet_data)
     packet_json = json.dumps(packet_data) 
-    # write json data to file for debugging purposes (for now)
-    with open("test.json", "a") as f:
-        f.write(packet_json)
-    # send data to HTTP Server Stage
 
-# start sniffing
+    # send data to HTTP Server Stage in Morpheus pipeline
+    requests.post('http://localhost:{}'.format(PIPE_PORT_NUM), json=packet_json)
+
+# start sniffing indefinitely
 if __name__ == "__main__":
-    sniff(count=15, prn=process_send, iface='{}'.format(NET_IF), store=0)
+    sniff(count=0, prn=process_send, iface='{}'.format(NET_IF), store=0)
