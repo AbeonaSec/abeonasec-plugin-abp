@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # pipe_run.py
 # pipeline initializer and runtime for the
 # Anomolous Behavior Profiling plugin
@@ -9,13 +11,11 @@ import sys
 if len(sys.argv) > 1:
     HTTP_PORT_NUM = sys.argv[1]
 else:
-    sys.exit("provide HTTP server port number for pipeline input as arg")
+    sys.exit("usage: ./pipe_run.py [Morpheus pipeline HTTP port]")
 
 MODEL_NAME = "abp-pcap-xgb"
-TRITON_URL = "localhost:8000"
-
-# temporary debug output
-print("DEBUG -- HTTP Port: " + HTTP_PORT_NUM + " || Type: " + type(HTTP_PORT_NUM))
+TRITON_URL = "http://localhost:8000"
+ELASTIC_CONF = '/opt/abeonasec/elasticsearch/conf.yaml' # placeholder
 
 # imports
 import os
@@ -41,7 +41,7 @@ from morpheus.stages.output.write_to_elasticsearch_stage.py import WriteToElasti
 
 # configure pipeline and stages
 def run_pipeline():
-    # using default logging
+    # using default logging recommended by Morpheus
     configure_logging(log_level=logging.INFO)
 
     # create config and set to FIL mode
@@ -60,7 +60,8 @@ def run_pipeline():
     pipeline = LinearPipeline(config)
 
     # data will be sent from data_run.py runtime to HttpServerSourceStage
-    pipeline.set_source(HttpServerSourceStage())
+    pipeline.set_source(
+        HttpServerSourceStage(config=config, port=HTTP_PORT_NUM,))
     pipeline.add_stage(DeserializeStage(config))
 
     # pcap preprocessing -- required formatting specific to this model
@@ -74,7 +75,12 @@ def run_pipeline():
     pipeline.add_stage(SerializeStage(config))
 
     # write data to elasticsearch
-    pipeline.add_stage(WriteToElasticsearchStage())
+    pipeline.add_stage(
+        WriteToElasticsearchStage(
+            config=config,
+            index='plugin-abp', # indexed by plugin name
+            connection_conf_file=ELASTIC_CONF
+        ))
     pipeline.run()
 
 # run pipeline
