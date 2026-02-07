@@ -4,7 +4,7 @@
 # script to intialize and run the 
 # Anomolous Behavior Profiling plugin
 # written by Aaron Krapes
-# Feb 6, 2026
+# Feb 7, 2026
 
 # model handling logic
 # maybe copy from this folder to a specified one?
@@ -63,6 +63,7 @@ NETWORK WHICH YOU DO NOT OWN OR HAVE LEGAL PERMISSION TO ADMINISTRATE
 # prompt the user to acknowledge
 read -p "Type 'accept' to acknowledge and proceed with the installation: " INPUT
 if [ "$INPUT" != "accept" ]; then
+    echo "You must acknowledge these terms."
     exit 1
 fi
 
@@ -73,8 +74,9 @@ NET_IF=$(ip route | grep default | awk '{print $5}' | awk /./)
 read -p "Is $NET_IF the Network Interface that you would like to sniff on? (y/N): " INPUT
 if [ "$INPUT" == "N" ]; then
     read -p "Input the Network Interface that you would like to sniff on: " NET_IF
-elif [ "$INPUT" != "y"]; then
-    exit 1 # temporary exit with invalid input
+elif [ "$INPUT" != "y" ]; then
+    echo "Ensure that you know what interface to be sniffing on"
+    exit 1
 fi
 
 # run python files
@@ -85,11 +87,16 @@ chmod +x data_run.py pipe_run.py
 # make sure http server input stage is running before starting the sniffing code
 # setting timeout of 60 seconds for now (can adjust later if problematic)
 TIMEOUT=60
-if timeout "$TIMEOUT" nc -z localhost "$PORT" > /dev/null 2>&1; then
-    ./data_run.py $PORT $NET_IF
-    echo "Started sniffing on $NET_IF. Triple check that this is the correct interface." 
-else
-    echo "CRITICAL: Morpheus pipeline has not started after 60 seconds."
-    echo "Ensure pipe_run.py is started and the Morpheus HTTP Server is listening on $PORT."
-    exit 1
-fi
+START_TIME=$SECONDS
+until nc -z localhost "$PORT" 2>/dev/null; do
+    if [ $(( SECONDS - START_TIME )) -ge $TIMEOUT ]; then
+        echo "CRITICAL: Morpheus pipeline has not started after 60 seconds."
+        echo "Ensure pipe_run.py is started and the Morpheus HTTP Server is listening on $PORT."
+        exit 1
+    fi
+    sleep 0.5
+done
+
+./data_run.py $PORT $NET_IF
+echo "Setup complete!!"
+echo "Started sniffing on $NET_IF. Triple check that this is the correct interface."
