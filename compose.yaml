@@ -1,0 +1,13 @@
+services:
+  abeonasec-plugin-abp:
+    container_name: abeonasec-plugin-abp
+    build:
+      context: .
+      dockerfile: plugin-abp.Dockerfile
+      args:
+        PIPE_IN_PORT: ${PIPE_IN_PORT}
+        NET_IF: ${NET_IF}
+    ports:
+    - "${PIPE_IN_PORT}"
+    networks:
+    - plugin-abp-bridge
