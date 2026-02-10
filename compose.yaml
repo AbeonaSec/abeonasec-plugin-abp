@@ -11,3 +11,8 @@ services:
     - "${PIPE_IN_PORT}"
     networks:
     - plugin-abp-bridge
+    - internal # needs to communicate inside the pod
+networks:
+  internal: {}
+  plugin-abp-bridge:
+    external: true # use pre-existing network
