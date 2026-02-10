@@ -18,7 +18,8 @@ RUN . /opt/conda/etc/profile.d/conda.sh && \
     conda install -c nvidia morpheus-core=25.06
 RUN export MORPHEUS_CORE_PKG_DIR=$(dirname $(python -c "import morpheus; print(morpheus.__file__)")); echo $MORPHEUS_CORE_PKG_DIR;
 RUN . /opt/conda/etc/profile.d/conda.sh && \
-    pip install -r ${MORPHEUS_DFP_PKG_DIR}/requirements_morpheus_dfp_arch-$(arch).txt &&\
+    conda activate morpheus && \
+    pip install -r ${MORPHEUS_CORE_PKG_DIR}/requirements_morpheus_core_arch-$(arch).txt &&\
     pip install cupy-cuda13x .
 
 # install dependencies for plugin code

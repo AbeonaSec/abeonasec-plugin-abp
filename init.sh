@@ -95,4 +95,4 @@ echo "NET_IF=$BRIDGE" >> .env
 
 # call podman compose to start building container
 echo "Starting container build."
-podman compose up -d
+podman compose up -d --build
