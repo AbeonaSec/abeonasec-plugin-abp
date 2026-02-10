@@ -1,3 +1,9 @@
+# plugin-abp.Dockerfile
+# dockerfile to build a morpheus container
+# and run the ABP AbeonaSec plugin
+# written by Aaron Krapes
+# Feb 9, 2026
+
 FROM docker.io/nvidia/cuda:13.1.1-cudnn-runtime-ubuntu24.04
 
 RUN apt-get update &&\
