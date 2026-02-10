@@ -10,10 +10,17 @@
 # maybe copy from this folder to a specified one?
 # or are we restarting tritonserver?
 
+# check if script is being run with sudo
+if [[ $EUID -ne 0 ]]; then
+   echo "CRITICAL: This script is not running with root privileges."
+   echo "This script requires root privileges in order to create the network bridge for packet sniffing."
+   exit 1
+fi
+
 # check that podman is installed and other containers are running
 echo "Checking health of podman installation..."
-if ! dpkg -s podman |& grep "Status: install ok" 2>/dev/null; then
-    apt-get install podman
+if ! dpkg -s podman |& grep "Status: install ok" >/dev/null; then
+    apt-get install -y podman podman-compose
 fi
 
 # if ! podman ps | grep abeonasec-ui 2>/dev/null; then
@@ -23,24 +30,13 @@ fi
 #     exit 1
 # fi
 
-# check cuda version for cupy install
-echo "Getting cuda version for dependency installation..."
-CUDAV=$(nvcc --version | grep release | awk '{gsub(/[.,]/, ""); print $5}')
-if [ -z "$CUDAV" ]; then
-    echo "CRITICAL: NVIDIA CUDA Toolkit is not installed properly."
-    echo "Make sure CUDA drivers are installed before proceeding with plugin installation."
-    exit 1
-fi
-echo "Installation of CUDA Toolkit ${CUDAV:0:2}.${CUDAV:2:1} found!"
-sed -i "/cupy-cuda/s/$/$CUDAV/" scripts/requirements.txt
-
 # set port number for HTTP input stage
 # loop from 8003 to 8079 and find the first unused port
 PORT=8003
 MAX=8079
 while true; do
     # run ss inside ui container (most stable) to see if any given port is being used
-    if ! podman exec abeonasec-ui ss -tulpn | grep -q ":$PORT" 2>/dev/null; then
+    if ! podman exec abeonasec-ui ss -tulpn | grep -q ":$PORT" >/dev/null; then
         break
     # if it is, iterate the value and repeat
     else
@@ -75,25 +71,28 @@ if [ "$INPUT" != "accept" ]; then
     exit 1
 fi
 
-# get name of default network interface
-NET_IF=$(ip route | grep default | awk '{print $5}' | awk /./)
-
-# ask user if _^^ network interface is the one they would like to run the plugin on
-read -p "Is $NET_IF the Network Interface that you would like to sniff on? (y/N): " INPUT
-if [ "$INPUT" == "N" ]; then
-    read -p "Input the Network Interface that you would like to sniff on: " NET_IF
-elif [ "$INPUT" != "y" ]; then
-    echo "Ensure that you know what interface to be sniffing on"
-    exit 1
-fi
-echo "Creating bridge with interface $NET_IF..."
-
 # create podman network to bridge this interface into the container
-BRIDGE=$(podman network create -d macvlan -o parent=$NET_IF plugin-abp-bridge)
-BRIDGE=$(basename $BRIDGE .conflist)
+if ! podman network ls | grep plugin-abp-bridge > /dev/null; then
+    # get name of default network interface
+    NET_IF=$(ip route | grep default | awk '{print $5}' | awk /./)
+
+    # ask user if _^^ network interface is the one they would like to run the plugin on
+    read -p "Is $NET_IF the Network Interface that you would like to sniff on? (y/N): " INPUT
+    if [ "$INPUT" == "N" ]; then
+        read -p "Input the Network Interface that you would like to sniff on: " NET_IF
+    elif [ "$INPUT" != "y" ]; then
+        echo "Ensure that you know what interface to be sniffing on"
+        exit 1
+    fi
+    echo "Creating bridge with interface $NET_IF..."
+    BRIDGE=$(podman network create -d macvlan -o parent=$NET_IF plugin-abp-bridge)
+    BRIDGE=$(basename $BRIDGE .json)
+else
+    BRIDGE=plugin-abp-bridge
+fi
 echo "Passing network bridge $BRIDGE into container."
 echo "NET_IF=$BRIDGE" >> .env
 
-# call podman compose to start building container\
+# call podman compose to start building container
 echo "Starting container build."
 podman compose up -d
