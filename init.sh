@@ -4,11 +4,35 @@
 # script to intialize and run the 
 # Anomolous Behavior Profiling plugin
 # written by Aaron Krapes
-# Feb 7, 2026
+# Feb 9, 2026
 
 # model handling logic
 # maybe copy from this folder to a specified one?
 # or are we restarting tritonserver?
+
+# check that podman is installed and other containers are running
+echo "Checking health of podman installation..."
+if ! dpkg -s podman |& grep "Status: install ok" 2>/dev/null; then
+    apt-get install podman
+fi
+
+# if ! podman ps | grep abeonasec-ui 2>/dev/null; then
+#     echo "CRITICAL: Cannot see abeonasec-ui container."
+#     echo "This is required in order to find an open port for the Morpheus pipeline."
+#     echo "Check the health of the core containers before proceeding with plugin installation."
+#     exit 1
+# fi
+
+# check cuda version for cupy install
+echo "Getting cuda version for dependency installation..."
+CUDAV=$(nvcc --version | grep release | awk '{gsub(/[.,]/, ""); print $5}')
+if [ -z "$CUDAV" ]; then
+    echo "CRITICAL: NVIDIA CUDA Toolkit is not installed properly."
+    echo "Make sure CUDA drivers are installed before proceeding with plugin installation."
+    exit 1
+fi
+echo "Installation of CUDA Toolkit ${CUDAV:0:2}.${CUDAV:2:1} found!"
+sed -i "/cupy-cuda/s/$/$CUDAV/" scripts/requirements.txt
 
 # set port number for HTTP input stage
 # loop from 8003 to 8079 and find the first unused port
@@ -65,9 +89,11 @@ fi
 echo "Creating bridge with interface $NET_IF..."
 
 # create podman network to bridge this interface into the container
-BRIDGE=plugin-abp-bridge
-podman network create -d macvlan -o parent=$NET_IF plugin-abp-bridge
+BRIDGE=$(podman network create -d macvlan -o parent=$NET_IF plugin-abp-bridge)
+BRIDGE=$(basename $BRIDGE .conflist)
+echo "Passing network bridge $BRIDGE into container."
 echo "NET_IF=$BRIDGE" >> .env
 
-# call podman compose to start building container
+# call podman compose to start building container\
+echo "Starting container build."
 podman compose up -d
