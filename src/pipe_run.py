@@ -36,7 +36,7 @@ from morpheus.stages.preprocess.deserialize_stage import DeserializeStage
 from morpheus.stages.inference.triton_inference_stage import TritonInferenceStage
 from morpheus.stages.postprocess.add_classifications_stage import AddClassificationsStage
 from morpheus.stages.postprocess.serialize_stage import SerializeStage
-from morpheus.stages.output.write_to_elasticsearch_stage.py import WriteToElasticsearchStage
+from morpheus.stages.output.write_to_elasticsearch_stage import WriteToElasticsearchStage
 
 
 # configure pipeline and stages

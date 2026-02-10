@@ -1,4 +1,5 @@
 scapy==2.7.0
 numpy
+cupy-cuda12x
 requests>=2.32.4
 libpcap

@@ -1,10 +1,9 @@
-#!/usr/bin/env python3
-
 # data_run.py
 # data collection runtime for the 
 # Anomolous Behavior Profiling plugin
+# specifically configured to run inside a container
 # written by Aaron Krapes
-# Feb 6, 2026
+# Feb 10, 2026
 
 # LEGAL DISCLAIMER 
 # -----------------------------------------------------------------------
@@ -16,11 +15,10 @@
 
 # global variables
 import sys
-if len(sys.argv) > 2:
+if len(sys.argv) > 1:
     PIPE_PORT_NUM = sys.argv[1]
-    NET_IF = sys.argv[2]
 else:
-    sys.exit("usage: sudo ./data_run.py [Morpheus pipeline HTTP port] [Network Interface]")
+    sys.exit("usage: python3 data_run.py [Morpheus pipeline HTTP port]")
 
 # imports
 from scapy.all import sniff, Raw, Ether, IP, IPv6, TCP, UDP
@@ -69,8 +67,8 @@ def process_send(pkt):
     packet_json = json.dumps(packet_data) 
 
     # send data to HTTP Server Stage in Morpheus pipeline
-    requests.post('http://localhost:{}'.format(PIPE_PORT_NUM), json=packet_json)
+    requests.post('http://localhost:{}/message'.format(PIPE_PORT_NUM), json=packet_json)
 
 # start sniffing indefinitely
 if __name__ == "__main__":
-    sniff(count=0, prn=process_send, iface='{}'.format(NET_IF), store=0)
+    sniff(count=0, prn=process_send, iface='eth0', store=0)
