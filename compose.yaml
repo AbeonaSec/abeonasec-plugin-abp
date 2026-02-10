@@ -7,7 +7,9 @@ services:
       args:
         PIPE_IN_PORT: ${PIPE_IN_PORT}
         NET_IF: ${NET_IF}
-    user: 1000
+    user: 1000 # running script as root so must specify user in compose
+    devices:
+      - nvidia.com/gpu=all
     ports:
     - "${PIPE_IN_PORT}"
     networks:
