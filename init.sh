@@ -4,7 +4,7 @@
 # script to intialize and run the 
 # Anomolous Behavior Profiling plugin
 # written by Aaron Krapes
-# Feb 9, 2026
+# Feb 10, 2026
 
 # model handling logic
 # maybe copy from this folder to a specified one?
@@ -75,7 +75,6 @@ fi
 if ! podman network ls | grep plugin-abp-bridge > /dev/null; then
     # get name of default network interface
     NET_IF=$(ip route | grep default | awk '{print $5}' | awk /./)
-
     # ask user if _^^ network interface is the one they would like to run the plugin on
     read -p "Is $NET_IF the Network Interface that you would like to sniff on? (y/N): " INPUT
     if [ "$INPUT" == "N" ]; then
@@ -85,7 +84,11 @@ if ! podman network ls | grep plugin-abp-bridge > /dev/null; then
         exit 1
     fi
     echo "Creating bridge with interface $NET_IF..."
-    BRIDGE=$(podman network create -d macvlan -o parent=$NET_IF plugin-abp-bridge)
+    # get host subnet and gateway
+    SUBNET=$(ip addr | grep -A 3 $NET_IF: | grep inet | awk '{print $2}' | awk -F'[./]' '{print $1"."$2"."$3".0/" $5}')
+    GATEWAY=$(echo $SUBNET | awk -F'[.]' '{print $1"."$2"."$3".1"}')
+    # create network bridge
+    BRIDGE=$(podman network create -d macvlan --subnet $SUBNET --gateway $GATEWAY -o parent=$NET_IF plugin-abp-bridge)
     BRIDGE=$(basename $BRIDGE .json)
 else
     BRIDGE=plugin-abp-bridge
