@@ -1,22 +1,15 @@
 # compose.yaml
 # compose file for the ABP plugin
 # written by Aaron Krapes
-# Feb 9, 2026
+# Feb 10, 2026
 
 services:
   abeonasec-plugin-abp:
     container_name: abeonasec-plugin-abp
-    build:
-      context: .
-      dockerfile: plugin-abp.Dockerfile
-      args:
-        PIPE_IN_PORT: ${PIPE_IN_PORT}
-        NET_IF: ${NET_IF}
-    user: 1000 # running script as root so must specify user in compose
+    environment:
+    - PORT=8003
     devices:
       - nvidia.com/gpu=all
-    ports:
-    - "${PIPE_IN_PORT}"
     networks:
     - plugin-abp-bridge
     - internal # needs to communicate inside the pod
