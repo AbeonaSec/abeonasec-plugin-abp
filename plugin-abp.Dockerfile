@@ -3,8 +3,7 @@
 # and run the ABP AbeonaSec plugin
 # written by Aaron Krapes
 # Feb 9, 2026
-
-FROM docker.io/nvidia/cuda:13.1.1-cudnn-runtime-ubuntu24.04
+FROM docker.io/nvidia/cuda:12.8.0-runtime-ubuntu24.04
 
 RUN apt-get update &&\
     apt-get install -y wget &&\
@@ -34,8 +33,7 @@ RUN . /opt/conda/etc/profile.d/conda.sh && \
     conda install -c nvidia morpheus-core=25.06
 RUN . /opt/conda/etc/profile.d/conda.sh && \
     conda activate morpheus && \
-    pip install -r $(dirname $(python -c "import morpheus; print(morpheus.__file__)"))/requirements_morpheus_core_arch-$(arch).txt &&\
-    pip install cupy-cuda13x
+    pip install -r $(dirname $(python -c "import morpheus; print(morpheus.__file__)"))/requirements_morpheus_core_arch-$(arch).txt
 
 # set working directory and copy plugin scripts into container
 WORKDIR /
@@ -44,29 +42,31 @@ COPY scripts/. .
 # install dependencies for plugin code
 RUN pip install -r requirements.txt
 
-# get args from compose to use when starting scripts
-ARG PIPE_IN_PORT
-ARG NET_IF
-ENV PIPE_IN_PORT=$PIPE_IN_PORT
-ENV NET_IF=$NET_IF
+CMD ["bash", "-c", "nvidia-smi"]
 
-# start pipeline script
-RUN conda run -n morpheus python pipe_run.py ${PIPE_IN_PORT}
+# # get args from compose to use when starting scripts
+# ARG PIPE_IN_PORT
+# ARG NET_IF
+# ENV PIPE_IN_PORT=$PIPE_IN_PORT
+# ENV NET_IF=$NET_IF
 
-# check if pipeline input port was opened (otherwise sniffing script will fail)
-CMD ["bash", "-c", "
-TIMEOUT=60;
-START_TIME=$SECONDS;
-until ss -tulpn | grep -q ":$PORT" 2>/dev/null; do;
-    if [ $(( SECONDS - START_TIME )) -ge $TIMEOUT ]; then;
-        echo "CRITICAL: Morpheus pipeline has not started after 60 seconds.";
-        echo "Ensure pipe_run.py is started and the Morpheus HTTP Server is listening on $PORT.";
-        kill -s SIGTERM 1;
-    fi;
-    sleep 0.5;
-done;
-"]
+# # start pipeline script
+# RUN conda run -n morpheus python pipe_run.py ${PIPE_IN_PORT}
 
-# start sniffing script
-RUN ./data_run.py ${PIPE_IN_PORT} ${NET_IF}
-RUN echo "Setup Complete!\nStarted sniffing on ${NET_IF}"
+# # check if pipeline input port was opened (otherwise sniffing script will fail)
+# CMD ["bash", "-c", "
+# TIMEOUT=60;
+# START_TIME=$SECONDS;
+# until ss -tulpn | grep -q ":$PORT" 2>/dev/null; do;
+#     if [ $(( SECONDS - START_TIME )) -ge $TIMEOUT ]; then;
+#         echo "CRITICAL: Morpheus pipeline has not started after 60 seconds.";
+#         echo "Ensure pipe_run.py is started and the Morpheus HTTP Server is listening on $PORT.";
+#         kill -s SIGTERM 1;
+#     fi;
+#     sleep 0.5;
+# done;
+# "]
+
+# # start sniffing script
+# RUN ./data_run.py ${PIPE_IN_PORT} ${NET_IF}
+# RUN echo "Setup Complete!\nStarted sniffing on ${NET_IF}"
