@@ -56,12 +56,14 @@ echo "PIPE_IN_PORT=$PORT" >> .env
 # legal disclaimer about sniffing on network interface
 echo "
 LEGAL DISCLAIMER 
------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 THIS PROGRAM SNIFFS PACKETS FROM A SPECIFIED NETWORK INTERFACE
 
 DO NOT EVER RUN THIS PROGRAM GIVEN AN INTERFACE THAT HAS ACCESS TO A 
 NETWORK WHICH YOU DO NOT OWN OR HAVE LEGAL PERMISSION TO ADMINISTRATE
------------------------------------------------------------------------
+
+THE DEVELOPERS OF ABEONASEC TAKE NO RESPONSIBILITY FOR MISUSE OF THE APPLICATION
+--------------------------------------------------------------------------------
 "
 
 # prompt the user to acknowledge
