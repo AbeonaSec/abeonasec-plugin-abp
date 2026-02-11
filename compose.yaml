@@ -4,15 +4,29 @@
 # Feb 10, 2026
 
 services:
+  plugin-test:
+    container_name: plugin-test
+    image: ghcr.io/abeonasec/morpheus:0.2.0
+    networks:
+    - internal
+    devices:
+    - nvidia.com/gpu=all
+    ports:
+    - "8003:8003"
   abeonasec-plugin-abp:
     container_name: abeonasec-plugin-abp
+    image: ghcr.io/abeonasec/plugin-abp:0.1.0
     environment:
-    - PORT=8003
-    devices:
-      - nvidia.com/gpu=all
+    - ABP_PIPE_PORT=8003
+    cap_add:
+      - CAP_NET_RAW # needs socket access to bind interfaces
     networks:
     - plugin-abp-bridge
     - internal # needs to communicate inside the pod
+    ports:
+    - "7099:7099"
+    depends_on:
+    - plugin-test
 networks:
   internal: {}
   plugin-abp-bridge:
