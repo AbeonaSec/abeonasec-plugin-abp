@@ -6,12 +6,14 @@
 # Feb 10, 2026
 
 # LEGAL DISCLAIMER 
-# -----------------------------------------------------------------------
+# --------------------------------------------------------------------------------
 # THIS PROGRAM SNIFFS PACKETS FROM A SPECIFIED NETWORK INTERFACE
-#
+
 # DO NOT EVER RUN THIS PROGRAM GIVEN AN INTERFACE THAT HAS ACCESS TO A 
 # NETWORK WHICH YOU DO NOT OWN OR HAVE LEGAL PERMISSION TO ADMINISTRATE
-# -----------------------------------------------------------------------
+
+# THE DEVELOPERS OF ABEONASEC TAKE NO RESPONSIBILITY FOR MISUSE OF THE APPLICATION
+# --------------------------------------------------------------------------------
 
 # global variables
 import sys
@@ -21,6 +23,9 @@ else:
     sys.exit("usage: python3 data_run.py [Morpheus pipeline HTTP port]")
 
 # imports
+import logging
+logging.getLogger("scapy").setLevel(logging.WARNING) # set logger first
+
 from scapy.all import sniff, Raw, Ether, IP, IPv6, TCP, UDP
 from scapy.config import conf
 import json
@@ -34,7 +39,7 @@ conf.use_pcap = True
 def process_send(pkt):
     # make sure packet contains IP information (L2) or is IPv6 (not useful with model)
     if not pkt.haslayer(IP) or pkt.haslayer(IPv6):
-        return 0
+        return
     # initialize lists for storing packet information
     # helps convert into a dict, then json later
     field = ['timestamp', 'host_ip', 'data_len', 'data', 
@@ -71,4 +76,6 @@ def process_send(pkt):
 
 # start sniffing indefinitely
 if __name__ == "__main__":
+    print("[data_run.py]: Starting sniff on eth0...")
     sniff(count=0, prn=process_send, iface='eth0', store=0)
+    print("[data_run.py]: CRITICAL ERROR, EXITED")
