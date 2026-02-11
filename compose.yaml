@@ -13,9 +13,9 @@ services:
     - nvidia.com/gpu=all
     ports:
     - "8003:8003"
-  abeonasec-plugin-abp:
-    container_name: abeonasec-plugin-abp
-    image: ghcr.io/abeonasec/plugin-abp:0.1.0
+  plugin-abp:
+    container_name: plugin-abp
+    image: ghcr.io/abeonasec/plugin-abp:0.2.0
     environment:
     - ABP_PIPE_PORT=8003
     cap_add:
