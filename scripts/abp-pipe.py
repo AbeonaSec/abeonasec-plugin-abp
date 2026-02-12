@@ -1,10 +1,8 @@
-#!/usr/bin/env python3
-
-# pipe_run.py
+# abp-pipe.py
 # pipeline initializer and runtime for the
 # Anomolous Behavior Profiling plugin
 # written by Aaron Krapes
-# Feb 5, 2026
+# Feb 11, 2026
 
 # global variables
 import sys
@@ -15,7 +13,7 @@ else:
 
 MODEL_NAME = "abp-pcap-xgb"
 TRITON_URL = "http://localhost:8000"
-ELASTIC_CONF = '/opt/abeonasec/elasticsearch/conf.yaml' # placeholder
+ELASTIC_CONF = '/etc/abeonasec/elastic_conf.yaml'
 
 # imports
 import os
