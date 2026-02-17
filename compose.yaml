@@ -1,21 +1,12 @@
 # compose.yaml
 # compose file for the ABP plugin
 # written by Aaron Krapes
-# Feb 10, 2026
+# Feb 17, 2026
 
 services:
-  plugin-test:
-    container_name: plugin-test
-    image: ghcr.io/abeonasec/morpheus:0.2.0
-    networks:
-    - internal
-    devices:
-    - nvidia.com/gpu=all
-    ports:
-    - "8003:8003"
   plugin-abp:
     container_name: plugin-abp
-    image: ghcr.io/abeonasec/plugin-abp:0.2.0
+    image: ghcr.io/abeonasec/plugin-abp:latest
     environment:
     - ABP_PIPE_PORT=8003
     cap_add:
@@ -27,6 +18,108 @@ services:
     - "7099:7099"
     depends_on:
     - plugin-test
+
+  morpheus:
+    container_name: morpheus
+    image: ghcr.io/abeonasec/morpheus:latest
+    volumes:
+    - /etc/abeonasec/elasticsearch.yml:/etc/abeonasec/elasticsearch.yml:ro
+    - /opt/abeonasec/scripts:/scripts
+    networks:
+    - internal
+    devices:
+    - nvidia.com/gpu=all
+    ports:
+    - "8003:8003"
+
+  elastic-init:
+    container_name: elastic-init
+    image: docker.elastic.co/elasticsearch/elasticsearch-wolfi:9.3.0
+    volumes:
+      - /opt/abeonasec/certs:/usr/share/elasticsearch/config/certs
+    user: root # required for generating and setting ownership of certs with following shell script
+    command: >
+      bash -c '
+        if [ x${ELASTIC_PASSWORD} == x ]; then
+          echo "Set the ELASTIC_PASSWORD environment variable in the .env file";
+          exit 1;
+        fi;
+        if [ ! -f config/certs/ca.zip ]; then
+          echo "Creating CA";
+          bin/elasticsearch-certutil ca --silent --pem -out config/certs/ca.zip;
+          unzip config/certs/ca.zip -d config/certs;
+        fi;
+        if [ ! -f config/certs/certs.zip ]; then
+          echo "Creating certs";
+          echo -ne \
+          "instances:\n"\
+          "  - name: abeonasec-es01\n"\
+          "    dns:\n"\
+          "      - localhost\n"\
+          "    ip:\n"\
+          "      - 127.0.0.1\n"\
+          > config/certs/instances.yml;
+          bin/elasticsearch-certutil cert --silent --pem -out config/certs/certs.zip --in config/certs/instances.yml --ca-cert config/certs/ca/ca.crt --ca-key config/certs/ca/ca.key;
+          unzip config/certs/certs.zip -d config/certs;
+        fi;
+        echo "Setting file permissions"
+        chown -R root:root config/certs;
+        find . -type d -exec chmod 750 \{\} \;;
+        find . -type f -exec chmod 640 \{\} \;;
+        echo "Waiting for Elasticsearch availability";
+        until curl -Iv https://host.containers.internal:9200 2>&1 | grep "SSL connection using TLSv1.3 / TLS_AES_256_GCM_SHA384 / x25519 / RSASSA-PSS"; do sleep 10; done;
+        echo "All done, exiting...";
+        kill -s SIGTERM 1;
+      '
+    networks:
+    - internal
+    healthcheck:
+      test: ["CMD-SHELL", "[ -f config/certs/abeonasec-es01/abeonasec-es01.crt ]"]
+      interval: 1s
+      timeout: 5s
+      retries: 120
+
+  abeonasec-es01: # single node elasticsearch cluster
+    container_name: abeonasec-es01
+    image: docker.elastic.co/elasticsearch/elasticsearch-wolfi:9.3.0
+    volumes:
+    - /var/lib/abeonasec/data:/usr/share/elasticsearch/data
+    - /opt/abeonasec/certs:/usr/share/elasticsearch/config/certs
+    - /etc/abeonasec/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+    ports:
+      - "9200:9200" # default elasticsearch port
+    networks:
+    - internal # internal to Pod
+    environment:
+    - ELASTIC_PASSWORD=placeholder123
+    - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -s --cacert config/certs/ca/ca.crt https://localhost:9200 | grep -q 'missing authentication credentials'",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 120
+    restart: unless-stopped
+  
+  DEV-abeonasec-elasticvue:
+    container_name: DEV-abeonasec-elasticvue
+    image: docker.io/cars10/elasticvue:latest
+    ports:
+      - "8080:8080" # exposed to host for viewing
+    environment:
+    - ELASTICVUE_CLUSTERS='[{"name":"abeonasec-es-cluster", "uri":"https://localhost:9200"}]'
+    networks:
+    depends_on:
+    - abeonasec-es01
+    restart: unless-stopped
+
 networks:
   internal: {}
   plugin-abp-bridge:
