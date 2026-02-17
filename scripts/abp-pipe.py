@@ -2,22 +2,16 @@
 # pipeline initializer and runtime for the
 # Anomolous Behavior Profiling plugin
 # written by Aaron Krapes
-# Feb 11, 2026
-
-# global variables
-import sys
-if len(sys.argv) > 1:
-    HTTP_PORT_NUM = sys.argv[1]
-else:
-    sys.exit("usage: ./pipe_run.py [Morpheus pipeline HTTP port]")
+# Feb 12, 2026
 
 MODEL_NAME = "abp-pcap-xgb"
 TRITON_URL = "http://localhost:8000"
-ELASTIC_CONF = '/etc/abeonasec/elastic_conf.yaml'
+ELASTIC_CONF = '/etc/abeonasec/elasticsearch.yml'
 
 # imports
 import os
 import logging
+import socket
 
 # NVIDIA preprocessing stage for model
 from abp_pcap_preprocessing import AbpPcapPreprocessingStage
@@ -36,9 +30,21 @@ from morpheus.stages.postprocess.add_classifications_stage import AddClassificat
 from morpheus.stages.postprocess.serialize_stage import SerializeStage
 from morpheus.stages.output.write_to_elasticsearch_stage import WriteToElasticsearchStage
 
+# function to find free http port for the pipeline input
+def find_free_port(start_port=8003):
+    print("Looking for free port for pipeline input, starting at {}".format(start_port))
+    port = start_port
+    while True:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(('localhost', port)) != 0:
+                print("Found free port {}...".format(port))
+                return port
+            port += 1
 
 # configure pipeline and stages
 def run_pipeline():
+    http_port = find_free_port(8003)
+
     # using default logging recommended by Morpheus
     configure_logging(log_level=logging.INFO)
 
@@ -59,18 +65,18 @@ def run_pipeline():
 
     # data will be sent from data_run.py runtime to HttpServerSourceStage
     pipeline.set_source(
-        HttpServerSourceStage(config=config, port=HTTP_PORT_NUM,))
-    pipeline.add_stage(DeserializeStage(config))
+        HttpServerSourceStage(config=config, port=http_port,))
+    # pipeline.add_stage(DeserializeStage(config))
 
     # pcap preprocessing -- required formatting specific to this model
-    pipeline.add_stage(AbpPcapPreprocessingStage(config))
+    # pipeline.add_stage(AbpPcapPreprocessingStage(config))
 
     # query triton server for model decision
-    pipeline.add_stage(TritonInferenceStage(config, model_name=MODEL_NAME, server_url=TRITON_URL))
+    # pipeline.add_stage(TritonInferenceStage(config, model_name=MODEL_NAME, server_url=TRITON_URL))
 
     # add classifications to data before writing to elasticsearch
-    pipeline.add_stage(AddClassificationsStage(config, labels=["probs"]))
-    pipeline.add_stage(SerializeStage(config))
+    # pipeline.add_stage(AddClassificationsStage(config, labels=["probs"]))
+    # pipeline.add_stage(SerializeStage(config))
 
     # write data to elasticsearch
     pipeline.add_stage(
