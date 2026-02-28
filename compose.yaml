@@ -13,7 +13,6 @@ services:
       - CAP_NET_RAW # needs socket access to bind interfaces
     networks:
     - plugin-abp-bridge
-    - internal # needs to communicate inside the pod
     ports:
     - "7099:7099"
     depends_on:
@@ -25,8 +24,6 @@ services:
     volumes:
     - /etc/abeonasec/elasticsearch.yml:/etc/abeonasec/elasticsearch.yml:ro
     - /opt/abeonasec/scripts:/scripts
-    networks:
-    - internal
     devices:
     - nvidia.com/gpu=all
     ports:
@@ -71,8 +68,8 @@ services:
         echo "All done, exiting...";
         kill -s SIGTERM 1;
       '
-    networks:
-    - internal
+    environment:
+    - ELASTIC_PASSWORD=placeholder123
     healthcheck:
       test: ["CMD-SHELL", "[ -f config/certs/abeonasec-es01/abeonasec-es01.crt ]"]
       interval: 1s
@@ -88,8 +85,6 @@ services:
     - /etc/abeonasec/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
     ports:
       - "9200:9200" # default elasticsearch port
-    networks:
-    - internal # internal to Pod
     environment:
     - ELASTIC_PASSWORD=placeholder123
     - bootstrap.memory_lock=true
@@ -115,12 +110,10 @@ services:
       - "8080:8080" # exposed to host for viewing
     environment:
     - ELASTICVUE_CLUSTERS='[{"name":"abeonasec-es-cluster", "uri":"https://localhost:9200"}]'
-    networks:
     depends_on:
     - abeonasec-es01
     restart: unless-stopped
 
 networks:
-  internal: {}
   plugin-abp-bridge:
     external: true # use pre-existing network
