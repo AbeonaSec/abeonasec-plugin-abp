@@ -199,3 +199,9 @@ class AbpPcapPreprocessingStage(PreprocessBaseStage):
                        fea_len=self._fea_length,
                        fea_cols=self.features,
                        req_cols=self.req_cols)
+
+    def _get_preprocess_node(self) -> typing.Callable[[ControlMessage], ControlMessage]:
+        return partial(AbpPcapPreprocessingStage.pre_process_batch,
+                       fea_len=self._fea_length,
+                       fea_cols=self.features,
+                       req_cols=self.req_cols)
