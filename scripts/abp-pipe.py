@@ -2,12 +2,12 @@
 # pipeline initializer and runtime for the
 # Anomolous Behavior Profiling plugin
 # written by Aaron Krapes
-# Feb 12, 2026
+# Mar 11, 2026
 
 MODEL_NAME = "abp-pcap-xgb"
-TRITON_URL = "http://localhost:8000"
-ELASTIC_CONF = '/etc/abeonasec/elasticsearch.yml'
-
+TRITON_URL = "http://host.containers.internal:8000"
+KAFKA_URL = "host.containers.internal:9092"
+ELASTIC_CONF = "/etc/abeonasec/es-client.yml"
 # imports
 import os
 import logging
@@ -23,30 +23,18 @@ from morpheus.utils.logger import configure_logging
 from morpheus.pipeline.linear_pipeline import LinearPipeline
 
 # morpheus pipeline stages
-from morpheus.stages.input.http_server_source_stage import HttpServerSourceStage
+from morpheus.stages.input.kafka_source_stage import KafkaSourceStage
 from morpheus.stages.preprocess.deserialize_stage import DeserializeStage
 from morpheus.stages.inference.triton_inference_stage import TritonInferenceStage
 from morpheus.stages.postprocess.add_classifications_stage import AddClassificationsStage
 from morpheus.stages.postprocess.serialize_stage import SerializeStage
 from morpheus.stages.output.write_to_elasticsearch_stage import WriteToElasticsearchStage
-
-# function to find free http port for the pipeline input
-def find_free_port(start_port=8003):
-    print("Looking for free port for pipeline input, starting at {}".format(start_port))
-    port = start_port
-    while True:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            if s.connect_ex(('localhost', port)) != 0:
-                print("Found free port {}...".format(port))
-                return port
-            port += 1
+from morpheus.stages.general.monitor_stage import MonitorStage
 
 # configure pipeline and stages
 def run_pipeline():
-    http_port = find_free_port(8003)
-
-    # using default logging recommended by Morpheus
-    configure_logging(log_level=logging.INFO)
+    # using default logging
+    configure_logging(log_level=logging.DEBUG)
 
     # create config and set to FIL mode
     config = Config()
@@ -63,20 +51,27 @@ def run_pipeline():
     # create pipeline object with config
     pipeline = LinearPipeline(config)
 
-    # data will be sent from data_run.py runtime to HttpServerSourceStage
-    pipeline.set_source(
-        HttpServerSourceStage(config=config, port=http_port,))
-    # pipeline.add_stage(DeserializeStage(config))
+    # data will be sent from data_run.py runtime to a Kafka topic
+    # in this case it will be 'pcap'
+    pipeline.set_source(KafkaSourceStage(
+        config=config,
+        bootstrap_servers=KAFKA_URL,
+        input_topic='pcap',
+        group_id='plugin-abp'
+    ))
+    pipeline.add_stage(DeserializeStage(config))
 
     # pcap preprocessing -- required formatting specific to this model
-    # pipeline.add_stage(AbpPcapPreprocessingStage(config))
+    pipeline.add_stage(AbpPcapPreprocessingStage(config))
+    pipeline.add_stage(MonitorStage(config, description="Input rate"))
 
     # query triton server for model decision
-    # pipeline.add_stage(TritonInferenceStage(config, model_name=MODEL_NAME, server_url=TRITON_URL))
+    pipeline.add_stage(TritonInferenceStage(config, model_name=MODEL_NAME, server_url=TRITON_URL))
+    pipeline.add_stage(MonitorStage(config, description="Inference rate", unit="inf"))
 
     # add classifications to data before writing to elasticsearch
-    # pipeline.add_stage(AddClassificationsStage(config, labels=["probs"]))
-    # pipeline.add_stage(SerializeStage(config))
+    pipeline.add_stage(AddClassificationsStage(config, labels=["probs"]))
+    pipeline.add_stage(SerializeStage(config))
 
     # write data to elasticsearch
     pipeline.add_stage(
@@ -85,6 +80,7 @@ def run_pipeline():
             index='plugin-abp', # indexed by plugin name
             connection_conf_file=ELASTIC_CONF
         ))
+    pipeline.add_stage(MonitorStage(config, description="Output rate", unit="to-elasticsearch"))
     pipeline.run()
 
 # run pipeline
