@@ -3,7 +3,7 @@
 # Anomolous Behavior Profiling plugin
 # specifically configured to run inside a container
 # written by Aaron Krapes
-# Feb 10, 2026
+# Mar 11, 2026
 
 # LEGAL DISCLAIMER 
 # --------------------------------------------------------------------------------
@@ -16,20 +16,20 @@
 # --------------------------------------------------------------------------------
 
 # global variables
-import sys
-if len(sys.argv) > 1:
-    PIPE_PORT_NUM = sys.argv[1]
-else:
-    sys.exit("usage: python3 data_run.py [Morpheus pipeline HTTP port]")
+KAFKA_URL='localhost:9092'
 
 # imports
 import logging
 logging.getLogger("scapy").setLevel(logging.WARNING) # set logger first
 
 from scapy.all import sniff, Raw, Ether, IP, IPv6, TCP, UDP
+from scapy.layers.http import *
 from scapy.config import conf
 import json
 import requests
+
+# function to create kafka topic
+
 
 # set scapy to use libpcap for compatibility
 conf.use_pcap = True
@@ -71,11 +71,13 @@ def process_send(pkt):
     packet_data = dict(zip(field, data))
     packet_json = json.dumps(packet_data) 
 
-    # send data to HTTP Server Stage in Morpheus pipeline
-    requests.post('http://localhost:{}/message'.format(PIPE_PORT_NUM), json=packet_json)
+    print(packet_json)
+
+   
 
 # start sniffing indefinitely
 if __name__ == "__main__":
-    print("[data_run.py]: Starting sniff on eth0...")
-    sniff(count=0, prn=process_send, iface='eth0', store=0)
-    print("[data_run.py]: CRITICAL ERROR, EXITED")
+    print("[abp-data.py]: Creating kafka topic 'pcap'...")
+    print("[abp-data.py]: Starting sniff on eth0...")
+    sniff(count=0, prn=process_send, iface='wlp4s0', store=0)
+    print("[abp-data.py]: CRITICAL ERROR, EXITED")

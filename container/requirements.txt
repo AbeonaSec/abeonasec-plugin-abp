@@ -2,3 +2,4 @@ scapy==2.7.0
 numpy
 requests>=2.32.4
 libpcap
+git+https://github.com/dpkp/kafka-python.git
