@@ -16,7 +16,7 @@
 # --------------------------------------------------------------------------------
 
 # global variables
-KAFKA_URL='localhost:9092'
+KAFKA_URL='host.containers.internal:9092'
 KAFKA_TOPIC='pcap'
 KAFKA_GROUP='plugin-abp'
 

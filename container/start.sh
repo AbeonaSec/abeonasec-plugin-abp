@@ -19,4 +19,4 @@ THE DEVELOPERS OF ABEONASEC TAKE NO RESPONSIBILITY FOR MISUSE OF THE APPLICATION
 "
 echo "Checking container network interface."
 ip addr | grep -A 3 "eth0"
-python3 data_run.py
+python3 abp-data.py
