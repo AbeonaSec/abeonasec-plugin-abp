@@ -17,6 +17,8 @@
 
 # global variables
 KAFKA_URL='localhost:9092'
+KAFKA_TOPIC='pcap'
+KAFKA_GROUP='plugin-abp'
 
 # imports
 import logging
@@ -26,19 +28,41 @@ from scapy.all import sniff, Raw, Ether, IP, IPv6, TCP, UDP
 from scapy.layers.http import *
 from scapy.config import conf
 import json
-import requests
+
+from kafka import KafkaProducer
+from kafka.admin import KafkaAdminClient, NewTopic
+from kafka.errors import TopicAlreadyExistsError
 
 # function to create kafka topic
+def create_topic():
+    # setup kafka admin client and attempt to create topic
+    admin = KafkaAdminClient(bootstrap_servers=[KAFKA_URL])
+    topic_obj = NewTopic(name=KAFKA_TOPIC, num_partitions=3, replication_factor=1)
+    try:
+        admin.create_topics([topic_obj])
+        print("[abp-data.py]: 'pcap' topic created")
+    except TopicAlreadyExistsError:
+        print("[abp-data.py]: 'pcap' topic already exists")
+    finally:
+        admin.close()
 
+# globally initialize kafka producer, used by process_send() to send data to kafka
+producer = KafkaProducer(
+    bootstrap_servers=[KAFKA_URL],
+    value_serializer=lambda v: v.encode('utf-8'),  # using UTF-8 encoded strings
+    batch_size=16384,
+    linger_ms=10,
+    acks='all' # prioritizing durability of data over speed
+)
 
 # set scapy to use libpcap for compatibility
 conf.use_pcap = True
 
 # function to parse packets into the format that the Morpheus pipeline expects
-# and send them to the HTTP Server input stage
+# and send them to the kafka topic to be consumed into the pipeline
 def process_send(pkt):
     # make sure packet contains IP information (L2) or is IPv6 (not useful with model)
-    if not pkt.haslayer(IP) or pkt.haslayer(IPv6):
+    if not pkt.haslayer(IP) or pkt.haslayer(IPv6) or not pkt.haslayer(Raw):
         return
     # initialize lists for storing packet information
     # helps convert into a dict, then json later
@@ -47,10 +71,16 @@ def process_send(pkt):
             'dest_ip', 'src_port', 'dest_port', 'flags']
     data = ['', '', '', '', '', '', '', '', '', '', '', '']
 
-    # see if packet has payload
+    # see if packet has an HTTP payload, otherwise leave empty
+    # the model(s) being used only understand HTTP data and may produce
+    # a false positive from other decoded payloads
     load = ''
-    if pkt.haslayer(Raw):
-        load = bytes(pkt[Raw].payload).decode('ascii', errors='backslashreplace')
+    if pkt.haslayer(HTTPRequest) or pkt.haslayer(HTTPResponse):
+        load = bytes(pkt[TCP].payload).decode('utf-8', errors='ignore')
+        # split http data off of any gibberish (encoded payload)
+        res = load.split('\r\n\r\n', 1)
+        head = res[0] + '\r\n\r\n' if res else ''
+        load = head
 
     # add data from Ethernet and IP layers
     data = [int(pkt.time), pkt[IP].src, pkt[IP].len, load, 
@@ -61,23 +91,22 @@ def process_send(pkt):
         data.insert(9, pkt[TCP].sport)
         data.insert(10, pkt[TCP].dport)
         data[11] = int(pkt[TCP].flags)
-        data[3] = bytes(pkt[TCP].payload).decode('ascii', errors='backslashreplace')
     elif pkt.haslayer(UDP):
         data.insert(9, pkt[UDP].sport)
         data.insert(10, pkt[UDP].dport)
-        data[3] = bytes(pkt[UDP].payload).decode('ascii', errors='backslashreplace')
 
     # create dictionary and convert to json
     packet_data = dict(zip(field, data))
     packet_json = json.dumps(packet_data) 
 
-    print(packet_json)
-
-   
+    #print(packet_json)
+    # send packet data to kafka topic
+    producer.send(KAFKA_TOPIC, value=packet_json)
 
 # start sniffing indefinitely
 if __name__ == "__main__":
     print("[abp-data.py]: Creating kafka topic 'pcap'...")
+    create_topic()
     print("[abp-data.py]: Starting sniff on eth0...")
-    sniff(count=0, prn=process_send, iface='wlp4s0', store=0)
+    sniff(count=0, prn=process_send, iface='eth0', store=0)
     print("[abp-data.py]: CRITICAL ERROR, EXITED")
