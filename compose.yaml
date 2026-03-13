@@ -89,7 +89,7 @@ services:
 
   triton:
     container_name: triton
-    image: nvcr.io/nvidia/morpheus/morpheus-tritonserver-models:25.06    
+    image: nvcr.io/nvidia/morpheus/morpheus-tritonserver-models:25.02    
     devices:
     - nvidia.com/gpu=all
     ports:
