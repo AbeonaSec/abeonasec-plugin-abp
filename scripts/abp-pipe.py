@@ -34,7 +34,7 @@ from morpheus.stages.general.monitor_stage import MonitorStage
 # configure pipeline and stages
 def run_pipeline():
     # using default logging
-    configure_logging(log_level=logging.DEBUG)
+    configure_logging(log_level=logging.INFO)
 
     # create config and set to FIL mode
     config = Config()
