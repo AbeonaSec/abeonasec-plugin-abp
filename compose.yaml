@@ -127,7 +127,7 @@ services:
       KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     volumes:
-      - /var/lib/abeonasec/zk/data:/tmp/kraft-combined-logs
+      - /var/lib/abeonasec/kafka/data:/tmp/kraft-combined-logs
     networks:
     - podman
 
@@ -135,7 +135,7 @@ services:
     container_name: abeonasec-es01
     image: docker.elastic.co/elasticsearch/elasticsearch-wolfi:9.3.0
     volumes:
-    - /var/lib/abeonasec/data:/usr/share/elasticsearch/data
+    - /var/lib/abeonasec/elasticsearch/data:/usr/share/elasticsearch/data
     - /opt/abeonasec/certs:/usr/share/elasticsearch/config/certs
     # - /etc/abeonasec/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
     networks:
