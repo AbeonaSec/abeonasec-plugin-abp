@@ -13,9 +13,9 @@ RUN apt-get update -y && \
 
 # copy scripts and run
 WORKDIR /usr/src/app
-COPY abp-data.py ./
-COPY requirements.txt ./
-COPY start.sh ./
+COPY container/abp-data.py ./
+COPY container/requirements.txt ./
+COPY container/start.sh ./
 
 RUN pip install -r requirements.txt
 RUN chmod +x start.sh 
