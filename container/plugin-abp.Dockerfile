@@ -8,7 +8,7 @@ FROM docker.io/library/python:3.12
 
 # need to install iproute2 for ss command
 RUN apt-get update -y && \
-    apt-get install -y netcat-openbsd libpcap-dev iproute2 && \
+    apt-get install -y netcat-openbsd libpcap-dev iproute2 curl && \
     rm -rf /var/lib/apt/lists/*
 
 # copy scripts and run
