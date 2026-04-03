@@ -5,8 +5,9 @@
 # Mar 11, 2026
 
 MODEL_NAME = "abp-pcap-xgb"
-TRITON_URL = "http://host.containers.internal:8000"
-KAFKA_URL = "host.containers.internal:9092"
+# using container name (podman dns)
+TRITON_URL = "http://triton:8000"
+KAFKA_URL = "kafka:9092"
 ELASTIC_CONF = "/etc/abeonasec/es-client.yml"
 # imports
 import os
