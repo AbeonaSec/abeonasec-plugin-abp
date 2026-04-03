@@ -190,7 +190,6 @@ services:
     depends_on:
     - abeonasec-es01
     restart: unless-stopped
-
 networks:
   plugin-abp-bridge:
     external: true # use pre-existing network
