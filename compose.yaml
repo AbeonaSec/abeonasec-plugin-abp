@@ -1,197 +1,22 @@
 # compose.yaml
 # compose file for the ABP plugin
 # written by Aaron Krapes
-# Feb 17, 2026
+# Apr 9, 2026
 
 services:
-  # plugin-abp:
-  #   container_name: plugin-abp
-  #   image: ghcr.io/abeonasec/plugin-abp:latest
-  #   environment:
-  #   - ABP_PIPE_PORT=8003
-  #   cap_add:
-  #     - CAP_NET_RAW # needs socket access to bind interfaces
-  #   networks:
-  #   - plugin-abp-bridge
-  #   - podman
-  #   ports:
-  #   - "7099:7099"
-  #   depends_on:
-  #   - plugin-test
-
-  # morpheus:
-  #   container_name: morpheus
-  #   image: ghcr.io/abeonasec/morpheus:0.4.0
-  #   volumes:
-  #   - /etc/abeonasec/es-client.yml:/etc/abeonasec/es-client.yml
-  #   - /opt/abeonasec/scripts:/scripts
-  #   devices:
-  #   - nvidia.com/gpu=all
-  #   networks:
-  #   - podman
-  #   ports:
-  #   - "8003:8003"
-  #   command: >
-  #     bash -c 'echo "Waiting for Elasticsearch availability";
-  #       until curl -Iv https://host.containers.internal:9200 2>&1 | grep "TLSv1.3 (OUT), TLS handshake"; do sleep 10; done;
-  #       echo "Elasticsearch connection successful, starting pipeline...";
-  #       . /opt/conda/etc/profile.d/conda.sh && conda activate morpheus && python3 /scripts/abp-pipe.py';
-  #   depends_on:
-  #   - abeonasec-es01
-
-  # elastic-init:
-  #   container_name: elastic-init
-  #   image: docker.elastic.co/elasticsearch/elasticsearch-wolfi:9.3.0
-  #   volumes:
-  #     - /opt/abeonasec/certs:/usr/share/elasticsearch/config/certs
-  #   user: root # required for generating and setting ownership of certs with following shell script
-  #   networks:
-  #   - podman
-  #   command: >
-  #     bash -c '
-  #       if [ x${ELASTIC_PASSWORD} == x ]; then
-  #         echo "Set the ELASTIC_PASSWORD environment variable in the .env file";
-  #         exit 1;
-  #       fi;
-  #       if [ ! -f config/certs/ca.zip ]; then
-  #         echo "Creating CA";
-  #         bin/elasticsearch-certutil ca --silent --pem -out config/certs/ca.zip;
-  #         unzip config/certs/ca.zip -d config/certs;
-  #       fi;
-  #       if [ ! -f config/certs/certs.zip ]; then
-  #         echo "Creating certs";
-  #         echo -ne \
-  #         "instances:\n"\
-  #         "  - name: abeonasec-es01\n"\
-  #         "    dns:\n"\
-  #         "      - localhost\n"\
-  #         "      - host.containers.internal\n"\
-  #         "    ip:\n"\
-  #         "      - 127.0.0.1\n"\
-  #         > config/certs/instances.yml;
-  #         bin/elasticsearch-certutil cert --silent --pem -out config/certs/certs.zip --in config/certs/instances.yml --ca-cert config/certs/ca/ca.crt --ca-key config/certs/ca/ca.key;
-  #         unzip config/certs/certs.zip -d config/certs;
-  #       fi;
-  #       echo "Setting file permissions"
-  #       chown -R 1000:1000 config/certs;
-  #       find . -type d -exec chmod 750 \{\} \;;
-  #       find . -type f -exec chmod 640 \{\} \;;
-  #       echo "Waiting for Elasticsearch availability";
-  #       until curl -Iv https://host.containers.internal:9200 2>&1 | grep "SSL connection using TLSv1.3 / TLS_AES_256_GCM_SHA384 / x25519 / RSASSA-PSS"; do sleep 10; done;
-  #       echo "All done, exiting...";
-  #       kill -s SIGTERM 1;
-  #     '
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "[ -f config/certs/abeonasec-es01/abeonasec-es01.crt ]"]
-  #     interval: 1s
-  #     timeout: 5s
-  #     retries: 120
-
-  triton:
-    container_name: triton
-    image: nvcr.io/nvidia/morpheus/morpheus-tritonserver-models:25.02    
-    devices:
-    - nvidia.com/gpu=all
-    ports:
-    - "8000:8000"
-    command: > 
-      tritonserver --model-repository=/models/triton-model-repo
-      --exit-on-error=false 
-      --log-info=true
-      --strict-readiness=false
-      --disable-auto-complete-config
+  plugin-abp:
+    container_name: plugin-abp
+    image: ghcr.io/abeonasec/plugin-abp:latest
+    cap_add:
+      - CAP_NET_RAW # needs socket access to bind interfaces
     networks:
-    - podman
-  
-  kafka: # single node kafka cluster
-    image: docker.io/apache/kafka:latest
-    hostname: kafka
-    container_name: kafka
-    ports:
-      - "9092:9092"
-      - "9093:9093"
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_CONTAINER:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_CONTAINER://host.containers.internal:9092,PLAINTEXT_HOST://localhost:9093
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_NODE_ID: 1
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
-      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_CONTAINER://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9093
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
-      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
-    volumes:
-      - /var/lib/abeonasec/kafka/data:/tmp/kraft-combined-logs
-    networks:
-    - podman
-
-  abeonasec-es01: # single node elasticsearch cluster
-    container_name: abeonasec-es01
-    image: docker.elastic.co/elasticsearch/elasticsearch-wolfi:9.3.0
-    volumes:
-    - /var/lib/abeonasec/elasticsearch/data:/usr/share/elasticsearch/data
-    - /opt/abeonasec/certs:/usr/share/elasticsearch/config/certs
-    # - /etc/abeonasec/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
-    networks:
-    - podman
-    ports:
-    - "9200:9200" # default elasticsearch port
-    environment:
-    - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
-    - bootstrap.memory_lock=true
-    - node.name=abeonasec-es01
-    - discovery.type=single-node
-    - cluster.name=abeonasec-es-cluster
-    - bootstrap.memory_lock=true
-    - xpack.security.enabled=true
-    - xpack.security.http.ssl.enabled=true
-    - xpack.security.http.ssl.key=certs/abeonasec-es01/abeonasec-es01.key
-    - xpack.security.http.ssl.certificate=certs/abeonasec-es01/abeonasec-es01.crt
-    - xpack.security.http.ssl.certificate_authorities=certs/ca/ca.crt
-    - xpack.security.transport.ssl.enabled=true
-    - xpack.security.transport.ssl.key=certs/abeonasec-es01/abeonasec-es01.key
-    - xpack.security.transport.ssl.certificate=certs/abeonasec-es01/abeonasec-es01.crt
-    - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
-    - xpack.security.transport.ssl.verification_mode=certificate
-    # the following are environment variables needed to enable elasticvue 
-    # to access the cluster and can be removed later
-    - http.cors.enabled=true
-    - http.cors.allow-origin=/.*/
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "curl -s --cacert config/certs/ca/ca.crt https://host.containers.internal:9200 | grep -q 'missing authentication credentials'",
-        ]
-      interval: 10s
-      timeout: 10s
-      retries: 120
-    restart: unless-stopped
-  
-  DEV-abeonasec-elasticvue:
-    container_name: DEV-abeonasec-elasticvue
-    image: docker.io/cars10/elasticvue:latest
-    ports:
-      - "8080:8080" # exposed to host for viewing
-    networks:
-    - podman
-    environment:
-    - ELASTICVUE_CLUSTERS='[{"name":"abeonasec-es-cluster", "uri":"https://localhost:9200"}]'
+    - plugin-abp-bridge
+    - abeonasec-internal
     depends_on:
-    - abeonasec-es01
-    restart: unless-stopped
+    - plugin-test
+
 networks:
   plugin-abp-bridge:
     external: true # use pre-existing network
-  podman:
+  abeonasec-internal:
     external: true

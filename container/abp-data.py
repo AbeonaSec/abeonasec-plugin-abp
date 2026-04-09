@@ -16,7 +16,7 @@
 # --------------------------------------------------------------------------------
 
 # global variables
-KAFKA_URL='kafka:9092' # podman dns for url
+KAFKA_URL='localhost:9092' # podman dns for url
 KAFKA_TOPIC='pcap'
 KAFKA_GROUP='plugin-abp'
 
