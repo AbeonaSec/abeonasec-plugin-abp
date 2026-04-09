@@ -71,4 +71,4 @@ podman compose up -d
 
 # restart morpheus container
 echo "Restarting morpheus container..."
-podman restart morpheus
+sudo -u abeonasec podman restart morpheus
