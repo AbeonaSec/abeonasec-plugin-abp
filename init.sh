@@ -6,10 +6,6 @@
 # written by Aaron Krapes
 # Feb 10, 2026
 
-# model handling logic
-# maybe copy from this folder to a specified one?
-# or are we restarting tritonserver?
-
 # check if script is being run with sudo
 if [[ $EUID -ne 0 ]]; then
    echo "CRITICAL: This script is not running with root privileges."
@@ -18,40 +14,8 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 # check that podman is installed and other containers are running
-echo "Checking health of podman installation..."
-if ! dpkg -s podman |& grep "Status: install ok" >/dev/null; then
-    apt-get install -y podman podman-compose
-fi
-
-# if ! podman ps | grep abeonasec-ui 2>/dev/null; then
-#     echo "CRITICAL: Cannot see abeonasec-ui container."
-#     echo "This is required in order to find an open port for the Morpheus pipeline."
-#     echo "Check the health of the core containers before proceeding with plugin installation."
-#     exit 1
-# fi
-
-# set port number for HTTP input stage
-# loop from 8003 to 8079 and find the first unused port
-PORT=8003
-MAX=8079
-while true; do
-    # run ss inside ui container (most stable) to see if any given port is being used
-    if ! podman exec abeonasec-ui ss -tulpn | grep -q ":$PORT" >/dev/null; then
-        break
-    # if it is, iterate the value and repeat
-    else
-        PORT=$((PORT + 1))
-        # if maxxed out at 8079, error and quit
-        if [ "$PORT" -gt "$MAX" ]; then
-            echo "CRITICAL: All podman pod ports between $START and $MAX are in use."
-            echo "Read docs to manually choose a port and run the Morpheus pipeline."
-            exit 1
-        fi
-    fi
-done
-echo "Using port $PORT for Morpheus pipeline input..."
-touch .env
-echo "PIPE_IN_PORT=$PORT" >> .env
+echo "Checking health of kafka container..."
+curl -v telnet://localhost:9092
 
 # legal disclaimer about sniffing on network interface
 echo "
@@ -95,9 +59,16 @@ if ! podman network ls | grep plugin-abp-bridge > /dev/null; then
 else
     BRIDGE=plugin-abp-bridge
 fi
-echo "Passing network bridge $BRIDGE into container."
-echo "NET_IF=$BRIDGE" >> .env
+echo "Network bridge 'plugin-abp-bridge' created."
+
+echo "Adding models and scripts to respective folders..."
+ln -s abp-pcap-xgb /opt/abeonasec/models/abp-pcap-xgb
+ln -s abp-pipe.py /opt/abeonasec/scripts/abp-pipe.py
 
 # call podman compose to start building container
-echo "Starting container build."
-podman compose up -d --build
+echo "Starting plugin-abp container..."
+podman compose up -d
+
+# restart morpheus container
+echo "Restarting morpheus container..."
+podman restart morpheus
