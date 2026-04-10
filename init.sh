@@ -4,7 +4,7 @@
 # script to intialize and run the 
 # Anomolous Behavior Profiling plugin
 # written by Aaron Krapes
-# Feb 10, 2026
+# Apr 9, 2026
 
 # check if script is being run with sudo
 if [[ $EUID -ne 0 ]]; then
@@ -13,9 +13,23 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
-# check that podman is installed and other containers are running
-echo "Checking health of kafka container..."
-curl -v telnet://localhost:9092
+# check that interface was provided as command line argument
+if [ -z "$1" ]; then
+    echo "CRITICAL: Provide interface to be used for network bridge as command line argument."
+    exit 1
+fi
+
+if ! ip -4 -br addr show | grep $1 > /dev/null; then
+    echo "CRITICAL: Provided interface name does not exist."
+    exit 1
+fi
+
+# check that kafka is listening
+echo "Checking health of kafka bootstrap server..."
+if curl -v telnet://localhost:9092 > /dev/null; then
+    echo "Kafka bootstrap server not detected. Check container health or networking."
+    exit 1
+fi
 
 # legal disclaimer about sniffing on network interface
 echo "
@@ -30,39 +44,17 @@ THE DEVELOPERS OF ABEONASEC TAKE NO RESPONSIBILITY FOR MISUSE OF THE APPLICATION
 --------------------------------------------------------------------------------
 "
 
-# prompt the user to acknowledge
-read -p "Type 'accept' to acknowledge and proceed with the installation: " INPUT
-if [ "$INPUT" != "accept" ]; then
-    echo "You must acknowledge these terms."
-    exit 1
-fi
-
-echo "Displaying network interfaces..."
-ip -4 -br addr show
-
-# create podman network to bridge this interface into the container
-if ! podman network ls | grep plugin-abp-bridge > /dev/null; then
-    # get name of default network interface
-    NET_IF=$(ip route | grep default | awk '{print $5}' | awk /./)
-    # ask user if _^^ network interface is the one they would like to run the plugin on
-    read -p "Is $NET_IF the Network Interface that you would like to sniff on? (y/N): " INPUT
-    if [ "$INPUT" == "N" ]; then
-        read -p "Input the Network Interface that you would like to sniff on: " NET_IF
-    elif [ "$INPUT" != "y" ]; then
-        echo "Ensure that you know what interface to be sniffing on"
-        exit 1
-    fi
-    echo "Creating bridge with interface $NET_IF..."
+# create docker network to bridge this interface into the container
+if ! docker network ls | grep plugin-abp-bridge > /dev/null; then
+    echo "Creating bridge with interface $1..."
     # get host subnet and gateway
-    SUBNET=$(ip addr | grep -A 3 $NET_IF: | grep inet | awk '{print $2}' | awk -F'[./]' '{print $1"."$2"."$3".0/" $5}')
+    SUBNET=$(ip addr | grep -A 3 $1: | grep inet | awk '{print $2}' | awk -F'[./]' '{print $1"."$2"."$3".0/" $5}')
     GATEWAY=$(echo $SUBNET | awk -F'[.]' '{print $1"."$2"."$3".1"}')
     # create network bridge
-    BRIDGE=$(podman network create -d macvlan --subnet $SUBNET --gateway $GATEWAY -o parent=$NET_IF plugin-abp-bridge)
+    BRIDGE=$(docker network create -d macvlan --subnet=$SUBNET --gateway=$GATEWAY -o parent=$1 plugin-abp-bridge)
     BRIDGE=$(basename $BRIDGE .json)
-else
-    BRIDGE=plugin-abp-bridge
 fi
-echo "Network bridge 'plugin-abp-bridge' created."
+echo $BRIDGE
 
 echo "Adding models and scripts to respective folders..."
 ln -s abp-pcap-xgb /opt/abeonasec/models/abp-pcap-xgb
@@ -70,8 +62,8 @@ ln -s abp-pipe.py /opt/abeonasec/scripts/abp-pipe.py
 
 # call podman compose to start building container
 echo "Starting plugin-abp container..."
-podman compose up -d
+docker compose up -d
 
 # restart morpheus container
 echo "Restarting morpheus container..."
-sudo -u abeonasec podman restart morpheus
+docker restart morpheus
