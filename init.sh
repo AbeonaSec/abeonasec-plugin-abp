@@ -37,7 +37,8 @@ if [ "$INPUT" != "accept" ]; then
     exit 1
 fi
 
-ip addr
+echo "Displaying network interfaces..."
+ip -4 -br addr show
 
 # create podman network to bridge this interface into the container
 if ! podman network ls | grep plugin-abp-bridge > /dev/null; then
