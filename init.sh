@@ -57,8 +57,8 @@ fi
 echo $BRIDGE
 
 echo "Adding models and scripts to respective folders..."
-ln -s abp-pcap-xgb /opt/abeonasec/models/abp-pcap-xgb
-ln -s abp-pipe.py /opt/abeonasec/scripts/abp-pipe.py
+ln -sf abp-pcap-xgb /opt/abeonasec/models/abp-pcap-xgb
+ln -sf abp-pipe.py /opt/abeonasec/scripts/abp-pipe.py
 
 # call podman compose to start building container
 echo "Starting plugin-abp container..."
