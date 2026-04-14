@@ -26,7 +26,7 @@ fi
 
 # check that kafka is listening
 echo "Checking health of kafka bootstrap server..."
-if curl -v telnet://localhost:9092 > /dev/null; then
+if ! nc -vz localhost 9092 2>&1 | grep "succeeded"; then
     echo "Kafka bootstrap server not detected. Check container health or networking."
     exit 1
 fi
@@ -64,6 +64,9 @@ ln -sf abp-pipe.py /opt/abeonasec/scripts/abp-pipe.py
 echo "Starting plugin-abp container..."
 docker compose up -d
 
+# start pipeline
+docker exec morpheus . /opt/conda/etc/profile.d/conda.sh && conda activate morpheus && python3 /scripts/abp-pipe.py 
+
 # restart morpheus container
-echo "Restarting morpheus container..."
-docker restart morpheus
+# echo "Restarting morpheus container..."
+# docker restart morpheus

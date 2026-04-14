@@ -11,12 +11,7 @@ services:
       - CAP_NET_RAW # needs socket access to bind interfaces
     networks:
     - plugin-abp-bridge
-    - abeonasec-internal
-    depends_on:
-    - plugin-test
 
 networks:
   plugin-abp-bridge:
     external: true # use pre-existing network
-  abeonasec-internal:
-    external: true
