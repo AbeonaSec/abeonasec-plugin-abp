@@ -50,7 +50,7 @@ echo "Adding models and scripts to respective folders..."
 
 # call podman compose to start building container
 echo "Starting plugin-abp..."
-docker run --rm -d --cap-add CAP_NET_RAW --network host --name plugin-abp localhost/plugin-abp /usr/src/app/start.sh $1
+docker run --rm -d --cap-add CAP_NET_RAW --network host --name plugin-abp ghcr.io/abeonasec/plugin-abp:latest /usr/src/app/start.sh $2
 
 # start morpheus pipeline
 echo "Starting morpheus pipeline..."
