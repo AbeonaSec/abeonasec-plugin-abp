@@ -6,6 +6,12 @@
 # written by Aaron Krapes
 # Mar 11, 2026
 
+# check that interface was provided as command line argument
+if [ -z "$1" ]; then
+    echo "CRITICAL: Provide interface to be used for network bridge as command line argument."
+    exit 1
+fi
+
 echo "
 LEGAL DISCLAIMER 
 --------------------------------------------------------------------------------
@@ -18,5 +24,5 @@ THE DEVELOPERS OF ABEONASEC TAKE NO RESPONSIBILITY FOR MISUSE OF THE APPLICATION
 --------------------------------------------------------------------------------
 "
 echo "Checking container network interface."
-ip addr | grep -A 3 "eth0"
-python3 abp-data.py
+ip addr | grep -A 3 $1
+python3 abp-data.py $1

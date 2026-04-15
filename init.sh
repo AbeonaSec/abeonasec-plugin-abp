@@ -44,29 +44,14 @@ THE DEVELOPERS OF ABEONASEC TAKE NO RESPONSIBILITY FOR MISUSE OF THE APPLICATION
 --------------------------------------------------------------------------------
 "
 
-# create docker network to bridge this interface into the container
-if ! docker network ls | grep plugin-abp-bridge > /dev/null; then
-    echo "Creating bridge with interface $1..."
-    # get host subnet and gateway
-    SUBNET=$(ip addr | grep -A 3 $1: | grep inet | awk '{print $2}' | awk -F'[./]' '{print $1"."$2"."$3".0/" $5}')
-    GATEWAY=$(echo $SUBNET | awk -F'[.]' '{print $1"."$2"."$3".1"}')
-    # create network bridge
-    BRIDGE=$(docker network create -d macvlan --subnet=$SUBNET --gateway=$GATEWAY -o parent=$1 plugin-abp-bridge)
-    BRIDGE=$(basename $BRIDGE .json)
-fi
-echo $BRIDGE
-
 echo "Adding models and scripts to respective folders..."
-ln -sf abp-pcap-xgb /opt/abeonasec/models/abp-pcap-xgb
-ln -sf abp-pipe.py /opt/abeonasec/scripts/abp-pipe.py
+#cp -r abp-pcap-xgb /opt/abeonasec/models/abp-pcap-xgb
+#ln abp-pipe.py /opt/abeonasec/scripts/abp-pipe.py
 
 # call podman compose to start building container
-echo "Starting plugin-abp container..."
-docker compose up -d
+echo "Starting plugin-abp..."
+docker run --rm -d --cap-add CAP_NET_RAW --network host --name plugin-abp localhost/plugin-abp /usr/src/app/start.sh $1
 
-# start pipeline
-docker exec morpheus . /opt/conda/etc/profile.d/conda.sh && conda activate morpheus && python3 /scripts/abp-pipe.py 
-
-# restart morpheus container
-# echo "Restarting morpheus container..."
-# docker restart morpheus
+# start morpheus pipeline
+echo "Starting morpheus pipeline..."
+docker exec -d morpheus /bin/bash -c '. /opt/conda/etc/profile.d/conda.sh && conda activate morpheus && python3 /scripts/abp-pipe.py > /proc/1/fd/1'

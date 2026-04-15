@@ -6,7 +6,9 @@
 services:
   plugin-abp:
     container_name: plugin-abp
-    image: ghcr.io/abeonasec/plugin-abp:latest
+    image: localhost/plugin-abp
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     cap_add:
       - CAP_NET_RAW # needs socket access to bind interfaces
     networks:

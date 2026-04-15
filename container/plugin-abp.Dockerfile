@@ -23,4 +23,4 @@ RUN chmod +x start.sh
 # need python to be unbuffered for logging inside the script
 ENV PYTHONUNBUFFERED=1
 
-CMD [ "bash", "/usr/src/app/start.sh" ]
+CMD [ "bash", "/usr/src/app/start.sh eth0" ]

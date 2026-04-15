@@ -7,7 +7,7 @@
 MODEL_NAME = "abp-pcap-xgb"
 # using container name (podman dns)
 TRITON_URL = "http://localhost:8000"
-KAFKA_URL = "http://localhost:9092"
+KAFKA_URL = "localhost:9092"
 ELASTIC_CONF = "/etc/abeonasec/es-client.yml"
 # imports
 import os

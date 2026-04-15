@@ -15,8 +15,12 @@
 # THE DEVELOPERS OF ABEONASEC TAKE NO RESPONSIBILITY FOR MISUSE OF THE APPLICATION
 # --------------------------------------------------------------------------------
 
+import sys
+if len(sys.argv) < 1:
+    print("Usage: abp-data.py [if_name]")
+
 # global variables
-KAFKA_URL='localhost:9092' # podman dns for url
+KAFKA_URL='localhost:9092'
 KAFKA_TOPIC='pcap'
 KAFKA_GROUP='plugin-abp'
 
@@ -107,6 +111,6 @@ def process_send(pkt):
 if __name__ == "__main__":
     print("[abp-data.py]: Creating kafka topic 'pcap'...")
     create_topic()
-    print("[abp-data.py]: Starting sniff on eth0...")
-    sniff(count=0, prn=process_send, iface='eth0', store=0)
+    print(f"[abp-data.py]: Starting sniff on {sys.argv[1]}...")
+    sniff(count=0, prn=process_send, iface=sys.argv[1], store=0)
     print("[abp-data.py]: CRITICAL ERROR, EXITED")
